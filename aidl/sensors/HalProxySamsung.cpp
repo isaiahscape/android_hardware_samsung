@@ -7,8 +7,11 @@
 #include "HalProxySamsung.h"
 
 #include <ConvertUtils.h>
+#include <sensors.sysprop.h>
 
 // #define VERBOSE
+
+using namespace ::android::sensors::samsung;
 
 namespace aidl {
 namespace android {
@@ -16,10 +19,58 @@ namespace hardware {
 namespace sensors {
 namespace implementation {
 
+using ::android::hardware::sensors::V2_0::implementation::ScopedWakelock;
+using ::android::hardware::sensors::V2_1::SensorType;
+
+HalProxySamsung::HalProxySamsung() {
+    using Workaround = SensorsHalProperties::device_orientation_workaround_values;
+    auto workaround = SensorsHalProperties::device_orientation_workaround();
+    if (workaround == Workaround::HIDE) {
+        mHideDeviceOrientation = true;
+    } else if (workaround == Workaround::SWAP_UPRIGHT_WHEN_FOLDED) {
+        for (const auto& [handle, sensor] : getSensors()) {
+            if (sensor.typeAsString == "com.samsung.sensor.folding_state") {
+                mFoldingStateHandle = handle;
+            }
+        }
+    }
+}
+
+void HalProxySamsung::postEventsToMessageQueue(const std::vector<Event>& events,
+                                               size_t numWakeupEvents, ScopedWakelock wakelock) {
+    if (mFoldingStateHandle < 0) {
+        HalProxy::postEventsToMessageQueue(events, numWakeupEvents, std::move(wakelock));
+        return;
+    }
+
+    for (const Event& event : events) {
+        if (event.sensorHandle == mFoldingStateHandle) mFolded = event.u.scalar < 1.0f;
+    }
+
+    if (!mFolded) {
+        HalProxy::postEventsToMessageQueue(events, numWakeupEvents, std::move(wakelock));
+        return;
+    }
+
+    std::vector<Event> remapped(events);
+    for (Event& event : remapped) {
+        if (event.sensorType == SensorType::DEVICE_ORIENTATION) {
+            // The cover screen faces the other way, so upright and upside down are swapped.
+            event.u.scalar = (6 - static_cast<int>(event.u.scalar)) % 4;
+        }
+    }
+    HalProxy::postEventsToMessageQueue(remapped, numWakeupEvents, std::move(wakelock));
+}
+
 ndk::ScopedAStatus HalProxySamsung::getSensorsList(
         std::vector<::aidl::android::hardware::sensors::SensorInfo>* _aidl_return) {
     for (const auto& sensor : HalProxy::getSensors()) {
         SensorInfo dst = sensor.second;
+
+        // Lets the framework derive screen orientation from the accelerometer instead.
+        if (mHideDeviceOrientation && dst.type == SensorType::DEVICE_ORIENTATION) {
+            continue;
+        }
 
         if (dst.requiredPermission == "com.samsung.permission.SSENSOR") {
             dst.requiredPermission = "";
