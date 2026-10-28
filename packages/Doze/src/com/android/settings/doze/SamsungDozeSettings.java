@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.lineageos.settings.doze;
+package com.android.settings.doze;
 
 import android.os.Bundle;
 import android.os.Handler;
@@ -25,8 +25,6 @@ import androidx.preference.SwitchPreferenceCompat;
 
 import com.android.settingslib.widget.MainSwitchPreference;
 import com.android.settingslib.widget.SettingsBasePreferenceFragment;
-
-import org.lineageos.internal.util.ScreenType;
 
 public class SamsungDozeSettings extends SettingsBasePreferenceFragment
         implements Preference.OnPreferenceChangeListener {
@@ -82,16 +80,6 @@ public class SamsungDozeSettings extends SettingsBasePreferenceFragment
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
-
-        // If running on a phone, remove padding around the listview
-        if (!ScreenType.isTablet(getContext())) {
-            getListView().setPadding(0, 0, 0, 0);
-        }
-    }
-
-    @Override
     public boolean onPreferenceChange(Preference preference, Object newValue) {
         boolean isChecked = (Boolean) newValue;
         if (Utils.ALWAYS_ON_DISPLAY.equals(preference.getKey())) {
@@ -117,3 +105,4 @@ public class SamsungDozeSettings extends SettingsBasePreferenceFragment
         return true;
     }
 }
+

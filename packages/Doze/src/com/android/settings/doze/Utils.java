@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.lineageos.settings.doze;
+package com.android.settings.doze;
 
 import static android.provider.Settings.Secure.DOZE_ALWAYS_ON;
 import static android.provider.Settings.Secure.DOZE_ENABLED;
@@ -115,3 +115,4 @@ public final class Utils {
                 .getBoolean(WAKE_ON_GESTURE_KEY, false);
     }
 }
+
